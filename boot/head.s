@@ -11,7 +11,7 @@
  * the page directory will exist. The startup code will be overwritten by
  * the page directory.
  */
-.text
+.text     # define executable data
 .globl idt,gdt,pg_dir,tmp_floppy_area
 pg_dir:
 .globl startup_32
@@ -24,7 +24,7 @@ startup_32:
 	lss stack_start,%esp
 	call setup_idt
 	call setup_gdt
-	movl $0x10,%eax		# reload all the segment registers
+	movl $0x10,%eax		# reload all the segment registers  # setting for selectors
 	mov %ax,%ds		# after changing gdt. CS was already
 	mov %ax,%es		# reloaded in 'setup_gdt'
 	mov %ax,%fs
@@ -112,8 +112,12 @@ setup_gdt:
  * I put the kernel page tables right after the page directory,
  * using 4 of them to span 16 Mb of physical memory. People with
  * more than 16MB will have to expand this.
+
+ *  page directory where is ?
+ *  0x1000 = 4096 DEC  = 2^12 
+ *  .org represent offset ? The ".org" directive is used to specify the starting address for the code or data that follows it
  */
-.org 0x1000
+.org 0x1000  
 pg0:
 
 .org 0x2000
@@ -195,10 +199,16 @@ ignore_int:
  * I've tried to show which constants to change by having
  * some kind of marker at them (search for "16Mb"), but I
  * won't guarantee that's all :-( )
+ *
+ * explain : movl ,xorl ,cld ,rep ; stosl ; movl ; std ;stosl; subl ;jge ;cld;
+ * 
+ *
+ *
+ *
  */
 .align 2
 setup_paging:
-	movl $1024*5,%ecx		/* 5 pages - pg_dir+4 page tables */
+	movl $1024*5,%ecx		/* 5 pages - pg_dir+4 page tables */  
 	xorl %eax,%eax
 	xorl %edi,%edi			/* pg_dir is at 0x000 */
 	cld;rep;stosl

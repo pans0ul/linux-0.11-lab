@@ -123,7 +123,7 @@ void main(void)		/* This really IS void, no error here. */
 	else
 		buffer_memory_end = 1*1024*1024;
 	main_memory_start = buffer_memory_end;
-#ifdef RAMDISK
+#ifdef RAMDISK  //when cmd: make debug ,it will enter rd_init
 	main_memory_start += rd_init(main_memory_start, RAMDISK*1024);
 #endif
 	mem_init(main_memory_start,memory_end);

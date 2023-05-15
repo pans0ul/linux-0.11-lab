@@ -59,7 +59,7 @@ long rd_init(long mem_start, int length)
 	rd_length = length;
 	cp = rd_start;
 	for (i=0; i < length; i++)
-		*cp++ = '\0';
+		*cp++ = '\0';  // 有什么意义？ meaningful?
 	return(length);
 }
 

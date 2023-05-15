@@ -154,6 +154,7 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 	unsigned long this_page;
 	unsigned long * from_dir, * to_dir;
 	unsigned long nr;
+	
 
 	if ((from&0x3fffff) || (to&0x3fffff))
 		panic("copy_page_tables called with wrong alignment");
@@ -193,18 +194,21 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
  * It returns the physical address of the page gotten, 0 if
  * out of memory (either when trying to access page-table or
  * page.)
+ * 
+ * To sumup ,I dont understand this function . 1. if this function want to put page to page_table but page_table is local variable;
+ * 2. if this function want to put page to address , is doesn't return address. if return page ,it changed only by code page|7.
  */
-unsigned long put_page(unsigned long page,unsigned long address)
+unsigned long put_page(unsigned long page,unsigned long address) // address is LINER ADDRESS
 {
 	unsigned long tmp, *page_table;
 
 /* NOTE !!! This uses the fact that _pg_dir=0 */
 
-	if (page < LOW_MEM || page >= HIGH_MEMORY)
+	if (page < LOW_MEM || page >= HIGH_MEMORY)  // page variable is page table or page entry ? page pointer ? page 
 		printk("Trying to put page %p at %p\n",page,address);
 	if (mem_map[(page-LOW_MEM)>>12] != 1)
 		printk("mem_map disagrees with %p at %p\n",page,address);
-	page_table = (unsigned long *) ((address>>20) & 0xffc);
+	page_table = (unsigned long *) ((address>>20) & 0xffc);  // (address>>20) & 0xffc: extract DIR(10bits) of LINER ADDRESS ,which represent DIR entry that points to page table
 	if ((*page_table)&1)
 		page_table = (unsigned long *) (0xfffff000 & *page_table);
 	else {
@@ -213,7 +217,8 @@ unsigned long put_page(unsigned long page,unsigned long address)
 		*page_table = tmp|7;
 		page_table = (unsigned long *) tmp;
 	}
-	page_table[(address>>12) & 0x3ff] = page | 7;
+	page_table[(address>>12) & 0x3ff] = page | 7;   // (address>>12) & 0x3ff : extract PAGE(10bits) of LINER ADDRESS 
+													// page_table[(address>>12) & 0x3ff] : point to PAGE FRAME  
 /* no need for invalidate */
 	return page;
 }
@@ -391,7 +396,7 @@ void do_no_page(unsigned long error_code,unsigned long address)
 		tmp--;
 		*(char *)tmp = 0;
 	}
-	if (put_page(page,address))
+	if (put_page(share_page,address))
 		return;
 	free_page(page);
 	oom();
@@ -400,15 +405,19 @@ void do_no_page(unsigned long error_code,unsigned long address)
 void mem_init(long start_mem, long end_mem)
 {
 	int i;
-
-	HIGH_MEMORY = end_mem;
-	for (i=0 ; i<PAGING_PAGES ; i++)
-		mem_map[i] = USED;
-	i = MAP_NR(start_mem);
+	/*总结初始化流程
+	1. S1：15M主内存，每个页都设置为USED ，通过>>12 （4K）来计算页数量。4K 为每页的大小。 按照道理mem_map只是一个内存状态的映射
+	2. S2：计算start_mem 所在的页数位置 ；
+	3. S3：start 到end 之间的页都设置为零; 
+	*/
+	HIGH_MEMORY = end_mem;  // LOW_MEMORY HIGH_MEMORY 应该表示的是 内存的低位 和 高位
+	for (i=0 ; i<PAGING_PAGES ; i++)  // PAGING_PAGES = 15x1024x1024 / 2^12 = (15x1024x1024) / 4096 (4K)=  3840 (PAGES)
+		mem_map[i] = USED;   // unsigned char   0 - 65535 
+	i = MAP_NR(start_mem); //#define 当作函数来使用。 MAP_NR(MEM_NUMBER) 根据 start_mem 返回内存页. 
 	end_mem -= start_mem;
-	end_mem >>= 12;
-	while (end_mem-->0)
-		mem_map[i++]=0;
+	end_mem >>= 12;  // >>=  等价于  emd_mem = end_mem >> 12 
+	while (end_mem-->0)  // end_mem -- > 0 ?  等价于  (end_mem --) > 0
+		mem_map[i++]=0; // 为什么一会儿设置为USED ，又设置成零
 }
 
 void calc_mem(void)
