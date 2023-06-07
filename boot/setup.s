@@ -132,7 +132,7 @@ end_move:
 	mov	$SETUPSEG, %ax	# right, forgot this at first. didn't work :-)
 	mov	%ax, %ds
 	lidt	idt_48		# load idt with 0,0
-	lgdt	gdt_48		# load gdt with whatever appropriate
+	lgdt	gdt_48		# load gdt with whatever appropriate  # aim to setting GDTR using lgdt [gdt_ptr]; gdt_ptr is 48 bit datastructure
 
 # that was painless, now we enable A20
 
@@ -212,8 +212,24 @@ empty_8042:
 	jnz	empty_8042	# yes - loop
 	ret
 
+#Here is the explanation for each entry in the GDT:
+
+#	- The first entry is a dummy entry, which is not used and has all fields set to 0.
+#	- The second entry describes a code segment with a limit of 8 Mb (2048 pages of 4 Kb), starting at address 0 (base address=0). The access rights are:
+#		- read and execute allowed (0x9A00): the segment contains code that can be executed and read by the CPU.
+#		- granularity of 4096 (0x00C0): the limit field specifies the number of 4 Kb pages, and the CPU can access memory in 4 Kb chunks.
+
+#	- The third entry describes a data segment with the same size as the code segment (8 Mb), starting at address 0. The access rights are:
+#		- read and write allowed (0x9200): the segment contains data that can be read and written by the CPU.
+#		- granularity of 4096 (0x00C0): the limit field specifies the number of 4 Kb pages, and the CPU can access memory in 4 Kb chunks.
+
+#    Overall, the GDT sets up memory protection and segmentation for the operating system. 
+#    The first entry is a placeholder, while the second and third entries define the code and data segments, respectively. 
+#    Each entry specifies the base address, limit, access rights, and other attributes of a memory segment that can be accessed by programs running in protected mode. 
+
+
 gdt:
-	.word	0,0,0,0		# dummy
+	.word	0,0,0,0		# dummy  # there are 4 value for each GDT entries
 
 	.word	0x07FF		# 8Mb - limit=2047 (2048*4096=8Mb)
 	.word	0x0000		# base address=0
@@ -225,13 +241,17 @@ gdt:
 	.word	0x9200		# data read/write
 	.word	0x00C0		# granularity=4096, 386
 
+
+
 idt_48:
 	.word	0			# idt limit=0
 	.word	0,0			# idt base=0L
 
-gdt_48:
-	.word	0x800			# gdt limit=2048, 256 GDT entries
-	.word   512+gdt, 0x9		# gdt base = 0X9xxxx, 
+gdt_48:    						# gdt_48 is variable 
+	.word	0x800				# gdt limit=2048, 256 GDT entries  # The ".word" directive creates a word-sized storage location in memory,
+																   # which can then be accessed or modified by other instructions in the program.
+	.word   512+gdt, 0x9		# gdt base = 0X9xxxx,   # The first 8 bits are obtained by adding the value of "gdt" to 512, and the second 8 bits are set to 0x9.
+														# The result is a 16-bit value that represents the base address of the Global Descriptor Table (GDT)
 	# 512+gdt is the real gdt after setup is moved to 0x9020 * 0x10
 	
 .text

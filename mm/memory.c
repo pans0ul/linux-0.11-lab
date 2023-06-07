@@ -197,6 +197,9 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
  * 
  * To sumup ,I dont understand this function . 1. if this function want to put page to page_table but page_table is local variable;
  * 2. if this function want to put page to address , is doesn't return address. if return page ,it changed only by code page|7.
+ * 
+ * 有几个问题 1. page_table 是数组吗？ 如果不是 怎么可以page_table[] 进行操作 ，如果是，unsigned long page_tables 不是定义数组 
+ * 2. page_table是局部变量,page_table[address] 是实际的页表项还是指针？ page_table 是指针 还是实际变量？ page_table is pointer
  */
 unsigned long put_page(unsigned long page,unsigned long address) // address is LINER ADDRESS
 {
