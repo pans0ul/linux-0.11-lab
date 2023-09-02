@@ -105,15 +105,28 @@ void free_page(unsigned long addr)
 /*
  * This function frees a continuos block of page tables, as needed
  * by 'exit()'. As does copy_page_tables(), this handles only 4Mb blocks.
+ * from : 线性地址
+ * size : 长度(页表个数)
  */
 int free_page_tables(unsigned long from,unsigned long size)
 {
 	unsigned long *pg_table;
 	unsigned long * dir, nr;
 
-	if (from & 0x3fffff)
+	if (from & 0x3fffff) /* 3fffff = 4M . 计算过程: 3fffff/ffffff = 1/4 ; 0xffffff = 2^24 = 16M  ; 0xffffff * 1/4 = 4M 
+						  & 位与; && 逻辑与
+						  只有当from 是4M 或4M的倍数的时候,条件才为假 . 学习表达式. if (from & 0xff)
+						 表示判断某个数 from 是否在 (0xff+0x1)的边界上,如果条件为否,表示在边界上.是说明不在边界上.
+						 linus 编程也太牛了.*/
+						 /*
+						 The expression from & 0x3fffff checks if the least significant 22 bits of the from variable are non-zero. 
+						 If the result is non-zero, the if condition evaluates to true.
+						 Therefore, the if statement will be false when from has a value that has all 22 least significant bits set to zero. 
+						 In other words, if from is a multiple of 4M (0x400000).
+						 */
+						
 		panic("free_page_tables called with wrong alignment");
-	if (!from)
+	if (!from)  // 判断是否为地址零, 条件否 则是零, 条件是, 则非零 , 死机
 		panic("Trying to free up swapper memory space");
 	size = (size + 0x3fffff) >> 22;
 	dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
