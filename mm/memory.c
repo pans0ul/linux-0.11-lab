@@ -128,8 +128,20 @@ int free_page_tables(unsigned long from,unsigned long size)
 		panic("free_page_tables called with wrong alignment");
 	if (!from)  // 判断是否为地址零, 条件否 则是零, 条件是, 则非零 , 死机
 		panic("Trying to free up swapper memory space");
-	size = (size + 0x3fffff) >> 22;
-	dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
+	size = (size + 0x3fffff) >> 22;/*
+									左移多少位代表什么含义?表示除2^22的大小 . 2^22 = 4M . 除4M . 计算得到多少页表个数. 一个页表能包含的额内存范围是4M 
+									所以在 linux 0.11 中 ,主物理内存大小是16M ,所以用4个页表表示足够了.
+									*/
+	dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_ dir = 0 ; dir指的是目录项, 计算的应该是从哪个页目录项*/ 
+								/*
+									回忆一下页目录项的地址: 分别是0x0000 ; 0x0004 ; 0x0008 ;0x0012 
+									
+									2^20 = 1M ; from 从上面的条件判断只能是4M或4M的倍数. 所以得到的值会是0;4;8;12
+
+									0xffc:The purpose of this operation is to mask the lower bits 
+									and ensure that the resulting value is aligned to a 4KB boundary (the size of a page directory entry).
+									注意这里的mask.  0xffc = 1111 1111 1100 . 所以这里是为了mask掉最后 2bits.
+								*/
 	for ( ; size-->0 ; dir++) {
 		if (!(1 & *dir))
 			continue;
