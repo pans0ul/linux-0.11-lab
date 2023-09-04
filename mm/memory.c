@@ -105,6 +105,13 @@ void free_page(unsigned long addr)
 /*
  * This function frees a continuos block of page tables, as needed
  * by 'exit()'. As does copy_page_tables(), this handles only 4Mb blocks.
+ * 函数功能: 释放一块连续的物理内存 
+ * process: 
+ * 1. begin addr + size (only aligned to 4M ,so begin address could be 0 4M 8M 12M )
+ * 2. find which dir : need dir location ; 
+ *    which page table : need page table location . 
+ * 	  if LINEAR ADDRESS , only need it's DIR offset that used to locate page table base address.
+ * 3. free each physical address that relative to page table entries .
  * from : 线性地址
  * size : 长度(页表个数)
  */
@@ -141,9 +148,17 @@ int free_page_tables(unsigned long from,unsigned long size)
 									0xffc:The purpose of this operation is to mask the lower bits 
 									and ensure that the resulting value is aligned to a 4KB boundary (the size of a page directory entry).
 									注意这里的mask.  0xffc = 1111 1111 1100 . 所以这里是为了mask掉最后 2bits.
+	
+									unsigned long * dir : dir是一个地址. *dir 就是该地址的值.
+									例如 在调试debug的时候, 0x0004  -- 0x002027 --0x40a06700
+									x 0x0004 : 0x002027 
+									x 0x002027 : 0x40a06700
+									x (*0x0004): 0x40a06700
+									所以 *0x0004能够取到地址0x0004的内容.
+									x 0x002027 与 x (*0x0004)是等价的.
 								*/
 	for ( ; size-->0 ; dir++) {
-		if (!(1 & *dir))
+		if (!(1 & *dir))          // *dir 就是某一个page table的基地址 
 			continue;
 		pg_table = (unsigned long *) (0xfffff000 & *dir);
 		for (nr=0 ; nr<1024 ; nr++) {
