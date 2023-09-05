@@ -108,12 +108,17 @@ void free_page(unsigned long addr)
  * 函数功能: 释放一块连续的物理内存 
  * process: 
  * 1. begin addr + size (only aligned to 4M ,so begin address could be 0 4M 8M 12M )
- * 2. find which dir : need dir location ; 
+ * 2. confirm dir : need dir location ; 
  *    which page table : need page table location . 
  * 	  if LINEAR ADDRESS , only need it's DIR offset that used to locate page table base address.
- * 3. free each physical address that relative to page table entries .
+ * 3. free each FRAME PAGE that relative to page table entries .
  * from : 线性地址
  * size : 长度(页表个数)
+ * 
+ * 总结: 从一个入参线性地址from 确定对应的页目录项, 页表 . 根据size大小确定要释放的范围.
+ * 从页目录到页表 逐级遍历释放掉PAGE FRAME , 最后释放掉页表
+ * 再刷新缓存区
+ * 完毕.
  */
 int free_page_tables(unsigned long from,unsigned long size)
 {
@@ -157,20 +162,21 @@ int free_page_tables(unsigned long from,unsigned long size)
 									所以 *0x0004能够取到地址0x0004的内容.
 									x 0x002027 与 x (*0x0004)是等价的.
 								*/
-	for ( ; size-->0 ; dir++) {
-		if (!(1 & *dir))          // *dir 就是某一个page table的基地址 
+	for ( ; size-->0 ; dir++) {    // 换个写法 : for( ; size>0 ; size-- , dir ++ )
+		if (!(1 & *dir))          // *dir 就是某一个page table的基地址, 如果*dir无效 continue   
 			continue;
-		pg_table = (unsigned long *) (0xfffff000 & *dir);
-		for (nr=0 ; nr<1024 ; nr++) {
-			if (1 & *pg_table)
-				free_page(0xfffff000 & *pg_table);
+		pg_table = (unsigned long *) (0xfffff000 & *dir); //取pa_table的基地址 mask掉最后三位无关地址的内容
+		for (nr=0 ; nr<1024 ; nr++) {  //释放掉page table中的每一个entry 
+			if (1 & *pg_table)  // *pa_table 指的是某一个FRAME_PAGE(4K)的地址. 如果这个地址有效call free_page ; 
+								//  如果无效(指已经是零,或者无法映射到物理内存FRAME PAGE), 令FRAME_PAGE =0 ()
+				free_page(0xfffff000 & *pg_table); // 0xfffff000 & *pg_table : 取地址
 			*pg_table = 0;
 			pg_table++;
 		}
-		free_page(0xfffff000 & *dir);
-		*dir = 0;
+		free_page(0xfffff000 & *dir); // page table 自己的mem map 置为空闲状态
+		*dir = 0; // page table 指向 PAGE FRAME 的地址 清零
 	}
-	invalidate();
+	invalidate(); //刷新缓存
 	return 0;
 }
 
