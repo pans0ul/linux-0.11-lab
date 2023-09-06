@@ -212,7 +212,7 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 	to_dir = (unsigned long *) ((to>>20) & 0xffc);
 	size = ((unsigned) (size+0x3fffff)) >> 22;
 	for( ; size-->0 ; from_dir++,to_dir++) {
-		if (1 & *to_dir)
+		if (1 & *to_dir)  //end page_tables 
 			panic("copy_page_tables: already exist");
 		if (!(1 & *from_dir))
 			continue;
@@ -225,13 +225,13 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 			this_page = *from_page_table;
 			if (!(1 & this_page))
 				continue;
-			this_page &= ~2;
-			*to_page_table = this_page;
-			if (this_page > LOW_MEM) {
+			this_page &= ~2;   //设置只读 ? // ~2　＝~10  = 01 　// this_page = this_page & ~2 
+			*to_page_table = this_page;  
+			if (this_page > LOW_MEM) { 
 				*from_page_table = this_page;
 				this_page -= LOW_MEM;
-				this_page >>= 12;
-				mem_map[this_page]++;
+				this_page >>= 12;  //具体看page frame的数据格式, >>12 表示只保留地址
+				mem_map[this_page]++; 
 			}
 		}
 	}
