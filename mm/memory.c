@@ -196,6 +196,7 @@ int free_page_tables(unsigned long from,unsigned long size)
  * doesn't take any more memory - we don't copy-on-write in the low
  * 1 Mb-range, so the pages can be shared with the kernel. Thus the
  * special case for nr=xxxx.
+ * 这里注意: 最后是将from_page_table复制给to_page_table ,并且两者指向的是同一块pageframe,复制的不是page frame .
  */
 int copy_page_tables(unsigned long from,unsigned long to,long size)
 {
@@ -225,12 +226,12 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 			this_page = *from_page_table;
 			if (!(1 & this_page))
 				continue;
-			this_page &= ~2;   //设置只读 ? // ~2　＝~10  = 01 　// this_page = this_page & ~2 
+			this_page &= ~2;   //设置只读 ? // ~2　＝~10  = 01 　// this_page = this_page & ~2 //为什么可以设置成只读?4K page frame的数据格式是如何定义的?
 			*to_page_table = this_page;  
 			if (this_page > LOW_MEM) { 
 				*from_page_table = this_page;
 				this_page -= LOW_MEM;
-				this_page >>= 12;  //具体看page frame的数据格式, >>12 表示只保留地址
+				this_page >>= 12;  //计算页数序号
 				mem_map[this_page]++; 
 			}
 		}
@@ -245,13 +246,21 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
  * out of memory (either when trying to access page-table or
  * page.)
  * 
- * To sumup ,I dont understand this function . 1. if this function want to put page to page_table but page_table is local variable;
- * 2. if this function want to put page to address , is doesn't return address. if return page ,it changed only by code page|7.
+ * 入参: page(4K)-- > PAGE FRAME
+ * 入参: address  linear address
+ * put page to  linear address 
+ * 
+ * 总结:实际上这个函数表达的意思是, 用入参address得到的page基地址 映射到 入参page基地址
+ * 	    也就是变更了线性地址中的某个页表所指向的PAGEFRAME 
+ * 
  * 
  * 有几个问题 1. page_table 是数组吗？ 如果不是 怎么可以page_table[] 进行操作 ，如果是，unsigned long page_tables 不是定义数组 
- * 2. page_table是局部变量,page_table[address] 是实际的页表项还是指针？ page_table 是指针 还是实际变量？ page_table is pointer
+ * 			答 : 数组的本质是指针 , 所以指针可以用数组表示,他们可以互相表示.
+ * 2. page_table是局部变量 ,这样的映射是否有效,在函数之外?
+ * 			答 : 其实实际上操作的是内存中的值, 所以在函数之外是有效的. 对dir;page_table;pageframe操作,这些都是在内存中.
+ * 
  */
-unsigned long put_page(unsigned long page,unsigned long address) // address is LINER ADDRESS
+unsigned long put_page(unsigned long page,unsigned long address) 
 {
 	unsigned long tmp, *page_table;
 
@@ -259,19 +268,30 @@ unsigned long put_page(unsigned long page,unsigned long address) // address is L
 
 	if (page < LOW_MEM || page >= HIGH_MEMORY)  // page variable is page table or page entry ? page pointer ? page 
 		printk("Trying to put page %p at %p\n",page,address);
-	if (mem_map[(page-LOW_MEM)>>12] != 1)
+	if (mem_map[(page-LOW_MEM)>>12] != 1) 
 		printk("mem_map disagrees with %p at %p\n",page,address);
-	page_table = (unsigned long *) ((address>>20) & 0xffc);  // (address>>20) & 0xffc: extract DIR(10bits) of LINER ADDRESS ,which represent DIR entry that points to page table
-	if ((*page_table)&1)
-		page_table = (unsigned long *) (0xfffff000 & *page_table);
-	else {
+	page_table = (unsigned long *) ((address>>20) & 0xffc);  // 目录项偏移地址, 前面变量名应该为dir才对
+	// (address>>20) & 0xffc: extract DIR(10bits) of LINER ADDRESS 
+	//  0xffc = 1111 1111 1100 . 所以这里是为了mask掉最后 2bits.
+	if ((*page_table)&1) //指向pagetable的DIR 是否有效
+		page_table = (unsigned long *) (0xfffff000 & *page_table); // 接上面  (unsigned long *) (0xfffff000 & *dir) 
+																   //  *dir 等价于page_table 
+																   //  0xfffff000 & page_table  只保留page table 中的frame page address,也就是指向某个page frame
+	else { // 如果无效
 		if (!(tmp=get_free_page()))
 			return 0;
 		*page_table = tmp|7;
 		page_table = (unsigned long *) tmp;
 	}
-	page_table[(address>>12) & 0x3ff] = page | 7;   // (address>>12) & 0x3ff : extract PAGE(10bits) of LINER ADDRESS 
-													// page_table[(address>>12) & 0x3ff] : point to PAGE FRAME  
+	page_table[(address>>12) & 0x3ff] = page | 7;   /* 
+													address >> 12  保留DIR|PAGE| ; OFFSET 被移出
+													0x3ff = 0011 1111 1111   
+													(address>>12) & 0x3ff : 保留10bits , 其他mask , get PAGE(10bits) 
+													page_table[(address>>12) & 0x3ff] 等价于 page_table[PAGE] ,
+													等价于page_table的基地址+偏移地址PAGE 可以计算得到一个page frame的起始地址
+													总结:实际上这个函数表达的意思是, 用入参address得到的page基地址 映射到 入参page基地址
+													也就是变更了线性地址中的某个页表所指向的PAGEFRAME 
+													*/						
 /* no need for invalidate */
 	return page;
 }
