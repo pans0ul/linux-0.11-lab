@@ -296,6 +296,18 @@ unsigned long put_page(unsigned long page,unsigned long address)
 	return page;
 }
 
+/*
+Introduction write_verify(), un_wp_page(),do_wp_page().
+
+write_verify() : why need to verify 
+		 	in : linear address 
+
+
+
+*/
+
+//un-write protect page 
+//
 void un_wp_page(unsigned long * table_entry)
 {
 	unsigned long old_page,new_page;
@@ -335,20 +347,33 @@ void do_wp_page(unsigned long error_code,unsigned long address)
 		*((unsigned long *) ((address>>20) &0xffc)))));
 
 }
+/*
 
+write_verify() : why need to verify 
+		 	in : linear address 
+
+*/
 void write_verify(unsigned long address)
 {
 	unsigned long page;
 
-	if (!( (page = *((unsigned long *) ((address>>20) & 0xffc)) )&1))
+	if (!( (page = *((unsigned long *) ((address>>20) & 0xffc)) )&1)) // twice get value :  equal to ** (address >> 22)
 		return;
-	page &= 0xfffff000;
-	page += ((address>>10) & 0xffc);
-	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */
+	page &= 0xfffff000; // 
+	page += ((address>>10) & 0xffc);  // page = page + address ( DIR | PAGE )
+	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */ 
 		un_wp_page((unsigned long *) page);
 	return;
 }
 
+
+
+
+/// @brief 
+//  the difference between get_empty_page and get_free_page ?
+//  get_free_page : not relative to linear addres 
+//  get_empty_page : map free page and linear address. this page called empty page.
+/// @param address : if successed , param address map to empty page .
 void get_empty_page(unsigned long address)
 {
 	unsigned long tmp;
@@ -441,6 +466,7 @@ static int share_page(unsigned long address)
 	return 0;
 }
 
+//
 void do_no_page(unsigned long error_code,unsigned long address)
 {
 	int nr[4];
@@ -449,7 +475,7 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	int block,i;
 
 	address &= 0xfffff000;
-	tmp = address - current->start_code;
+	tmp = address - current->start_code; // current process . start_code : the address of process code 
 	if (!current->executable || tmp >= current->end_data) {
 		get_empty_page(address);
 		return;

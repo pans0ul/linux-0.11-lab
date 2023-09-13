@@ -1,3 +1,3 @@
-file images/kernel.sym
-break main
+file boot/setup.sym
+break _start
 target remote :1234
