@@ -232,7 +232,8 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 				*from_page_table = this_page;
 				this_page -= LOW_MEM;
 				this_page >>= 12;  //计算页数序号
-				mem_map[this_page]++; 
+				mem_map[this_page]++; /*设置共享。mem_map[page] =1 表示被占用；
+                                       mem_map[page] >=2 表示被占用且共享 */
 			}
 		}
 	}
@@ -313,18 +314,20 @@ void un_wp_page(unsigned long * table_entry)
 	unsigned long old_page,new_page;
 
 	old_page = 0xfffff000 & *table_entry;
+	//后者判断页面是否处于共享状态；== 1 则表示 未处于共享状态
 	if (old_page >= LOW_MEM && mem_map[MAP_NR(old_page)]==1) {
-		*table_entry |= 2;
+		*table_entry |= 2;// |2 取消写保护  r/w bit . 1 =w ; 0=r 
 		invalidate();
 		return;
 	}
+	//page 处于共享状态
 	if (!(new_page=get_free_page()))
 		oom();
 	if (old_page >= LOW_MEM)
-		mem_map[MAP_NR(old_page)]--;
-	*table_entry = new_page | 7;
+		mem_map[MAP_NR(old_page)]--;//表示取消共享，但实际上有改变吗？映射有改变吗?
+	*table_entry = new_page | 7; // | 7 表示可读可写 
 	invalidate();
-	copy_page(old_page,new_page);
+	copy_page(old_page,new_page);// 交换，为了不浪费page  
 }	
 
 /*
@@ -349,7 +352,7 @@ void do_wp_page(unsigned long error_code,unsigned long address)
 }
 /*
 
-write_verify() : why need to verify 
+write_verify() : why need to verify .写页面之前做验证，目的是尝试是否可写
 		 	in : linear address 
 
 */
@@ -361,7 +364,7 @@ void write_verify(unsigned long address)
 		return;
 	page &= 0xfffff000; // 
 	page += ((address>>10) & 0xffc);  // page = page + address ( DIR | PAGE )
-	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */ 
+	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */  //?
 		un_wp_page((unsigned long *) page);
 	return;
 }
@@ -369,7 +372,7 @@ void write_verify(unsigned long address)
 
 
 
-/// @brief 
+/// @brief get free page and map to address 
 //  the difference between get_empty_page and get_free_page ?
 //  get_free_page : not relative to linear addres 
 //  get_empty_page : map free page and linear address. this page called empty page.
