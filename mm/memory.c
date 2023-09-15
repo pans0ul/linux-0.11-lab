@@ -364,7 +364,15 @@ void write_verify(unsigned long address)
 		return;
 	page &= 0xfffff000; // 
 	page += ((address>>10) & 0xffc);  // page = page + address ( DIR | PAGE )
-	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */  //?
+	if ((3 & *(unsigned long *) page) == 1)  /* non-writeable, present */  
+											 /* 3(dec) = 11(bin)   
+											    3 & 1011 = 3;
+												3 & 1001 = 1;
+												bit write/read , 0 non-writeable
+											The Present bit indicates whether a page table
+											entry can be used in address translation. 
+											P=1 indicates that the entry can be used.
+											 */
 		un_wp_page((unsigned long *) page);
 	return;
 }
