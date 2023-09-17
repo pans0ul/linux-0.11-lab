@@ -337,6 +337,9 @@ void un_wp_page(unsigned long * table_entry)
  *
  * If it's in code space we exit with a segment error.
  */
+
+ // The page_fault() call this function
+ // 这个函数还是取消写保护. 因为page fault调用的时候,是因为程序想要写入共享页,但是共享页只读.
 void do_wp_page(unsigned long error_code,unsigned long address)
 {
 #if 0
@@ -346,9 +349,16 @@ void do_wp_page(unsigned long error_code,unsigned long address)
 		do_exit(SIGSEGV);
 #endif
 	un_wp_page((unsigned long *)
-		(((address>>10) & 0xffc) + (0xfffff000 &
-		*((unsigned long *) ((address>>20) &0xffc)))));
-
+		(((address>>10) & 0xffc) + (0xfffff000 &  //((address>>10) & 0xffc) 保留 DIR|PAGE . 表示某个页表项的偏移地址
+		*((unsigned long *) ((address>>20) &0xffc)))));/* S1: ((address>>20) &0xffc) 保留 DIR .
+														  S2:  * 取地址以后 就是某个page table .
+														  S3:  0xfffff000 & page table  获得page table 所存的地址,这个地址指向某个PAGE FRAME
+														 
+														 这两个为什么要加呢? 前者指的页表项的的偏移地址
+														 后者指的是某个页表项的基地址
+														 基地址+偏移地址 ,正好表示某个页表项
+		*/
+																
 }
 /*
 
