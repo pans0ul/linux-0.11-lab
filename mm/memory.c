@@ -421,7 +421,7 @@ static int try_to_share(unsigned long address, struct task_struct * p)
 	unsigned long to_page;
 	unsigned long phys_addr;
 
-	from_page = to_page = ((address>>20) & 0xffc);
+	from_page = to_page = ((address>>20) & 0xffc); // DIR
 	from_page += ((p->start_code>>20) & 0xffc);
 	to_page += ((current->start_code>>20) & 0xffc);
 /* is there a page-directory at from? */
@@ -468,11 +468,11 @@ static int try_to_share(unsigned long address, struct task_struct * p)
  */
 static int share_page(unsigned long address)
 {
-	struct task_struct ** p;
+	struct task_struct ** p;   
 
 	if (!current->executable)
 		return 0;
-	if (current->executable->i_count < 2)
+	if (current->executable->i_count < 2) // ? 
 		return 0;
 	for (p = &LAST_TASK ; p > &FIRST_TASK ; --p) {
 		if (!*p)
@@ -487,7 +487,15 @@ static int share_page(unsigned long address)
 	return 0;
 }
 
-//
+/// @brief 这个是在当进程运行时,内存分页不够用的时候该做什么事情. 
+    /*
+	1. 进程动态申请内存页面 映射一页物理页
+	2. 尝试与已加载的相同文件进行页面共享
+	3. 从文件中读取所缺的数据页面到指定线性地址处
+	当进程要使用内存页时,在线性地址空间寻找时,发现内存页不够了. 于是page_default调用do_no_page函数
+	*/
+/// @param error_code 
+/// @param address  缺页的线性地址
 void do_no_page(unsigned long error_code,unsigned long address)
 {
 	int nr[4];
@@ -496,12 +504,12 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	int block,i;
 
 	address &= 0xfffff000;
-	tmp = address - current->start_code; // current process . start_code : the address of process code 
+	tmp = address - current->start_code; // 进程线性地址空间对应偏移地址  . 从进程的start_code开始计算
 	if (!current->executable || tmp >= current->end_data) {
-		get_empty_page(address);
+		get_empty_page(address);  // no_page的处理方式1 , 获取一个free page 并且与address 建立映射. 
 		return;
 	}
-	if (share_page(tmp))
+	if (share_page(tmp)) // no_page 的处理方式2  
 		return;
 	if (!(page = get_free_page()))
 		oom();
