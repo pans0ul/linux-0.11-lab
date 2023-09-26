@@ -59,10 +59,12 @@ static unsigned char mem_map [ PAGING_PAGES ] = {0,};
 /*
  * Get physical address of first (actually last :-) free page, and mark it
  * used. If no free pages left, return 0.
- * process steps 
+ * process steps : (mainly meanings , Refrence: 
+ * https://topic.alibabacloud.com/tc/a/linux-011-kernel-memory-management-get_free_page--function-analysis_1_16_30220847.html)
  * 0. mem map = memory map 
  * 1. find where are free pages
  * 2. set it's mem map to 1 , and make it empty ,and return it .
+ * 
  */
 unsigned long get_free_page(void)
 {
@@ -96,9 +98,13 @@ void free_page(unsigned long addr)
 	if (addr >= HIGH_MEMORY)
 		panic("trying to free nonexistent page");
 	addr -= LOW_MEM;
-	addr >>= 12;  // calculate where pages are ?
-	if (mem_map[addr]--) return;  // if (a--)  first condite a then  -- ; bug if the mem_map bigger than 1 (e.g == 3 ) ,is it meaningful ?
-	mem_map[addr]=0;  // if mem_map[addr] is zero .
+	addr >>= 12;  // addr = addr >> 12 . means divide 2^12 = 4K for calculating 
+				  // the number of page .
+	if (mem_map[addr]--) return;  // if (a--)  first condite a then  -- ; 
+								  // bug if the mem_map bigger than 1 (e.g == 3 ) ,is it meaningful ?
+								  // mem_map[addr]>=2 : page is shared 
+								  // mem_map[addr]>=1 : page is used 
+	mem_map[addr]=0;  // if mem_map[addr] <= 0 .
 	panic("trying to free free page"); //error 
 }
 
